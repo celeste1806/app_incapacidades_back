@@ -139,6 +139,10 @@ class UsuarioService:
     def set_estado(self, id_usuario: int, estado: bool) -> bool:
         return self.repo.set_estado(id_usuario, estado)
 
+    def set_rol(self, id_usuario: int, rol_id: int) -> bool:
+        """Actualiza el rol de un usuario. Permite, por ejemplo, asignar rol 10 (admin)."""
+        return self.repo.set_rol(id_usuario, int(rol_id))
+
     def update_me(self, user_id: int, payload: dict) -> bool:
         return self.repo.update_me(
             user_id,

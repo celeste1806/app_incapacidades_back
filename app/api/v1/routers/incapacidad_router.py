@@ -41,7 +41,7 @@ def subir_documento_incapacidad(
     archivo_id: int = Form(...),
     file: UploadFile = File(...),
     service: IncapacidadService = Depends(get_service),
-    empleado = Depends(get_current_employee),
+    usuario = Depends(get_current_employee_or_admin),
 ):
     """
     Acepta `incapacidad_id`, `archivo_id` y un archivo (pdf/png/jpg). Guarda el archivo en
@@ -50,7 +50,7 @@ def subir_documento_incapacidad(
     """
     try:
         return service.subir_documento_y_crear_registro(
-            usuario_id=empleado.id_usuario,
+            usuario_id=usuario.id_usuario,
             incapacidad_id=incapacidad_id,
             archivo_id=archivo_id,
             file=file,
@@ -69,17 +69,17 @@ def subir_documento_incapacidad(
 def crear_incapacidad(
     payload: IncapacidadCreate,
     service: IncapacidadService = Depends(get_service),
-    empleado = Depends(get_current_employee),
+    usuario = Depends(get_current_employee_or_admin),
 ):
     print(f"DEBUG: ===== INICIO CREAR INCAPACIDAD =====")
-    print(f"DEBUG: Usuario autenticado: {empleado.id_usuario}, Rol: {empleado.rol_id}")
+    print(f"DEBUG: Usuario autenticado: {usuario.id_usuario}, Rol: {usuario.rol_id}")
     print(f"DEBUG: Payload recibido: {payload}")
     print(f"DEBUG: Payload tipo: {type(payload)}")
     
     try:
         print(f"DEBUG: Llamando a service.crear_incapacidad...")
         result = service.crear_incapacidad(
-            usuario_id=empleado.id_usuario,
+            usuario_id=usuario.id_usuario,
             payload=payload
         )
         print(f"DEBUG: Incapacidad creada exitosamente: {result}")

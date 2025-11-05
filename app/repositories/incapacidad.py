@@ -338,38 +338,46 @@ class IncapacidadRepository:
         except Exception:
             return 0
 
-    def update_administrativo(self, id_incapacidad: int, *, 
-                              clase_administrativa: Optional[str] = None,
+    def update_administrativo(self, id_incapacidad: int, *,
+                              id_admin: Optional[int] = None,
+                              valor_pago: Optional[Decimal] = None,
                               numero_radicado: Optional[str] = None,
                               fecha_radicado: Optional[datetime] = None,
-                              paga: Optional[bool] = None,
-                              estado_administrativo: Optional[str] = None,
-                              usuario_revisor_id: Optional[int] = None,
-                              estado: int = 12) -> bool:  # 12 = realizada
-        """Actualiza campos administrativos y marca como revisada"""
-        values = {'estado': estado}
-        
-        if clase_administrativa is not None:
-            values['clase_administrativa'] = clase_administrativa
+                              fecha_pago: Optional[datetime] = None,
+                              estado: Optional[int] = 12) -> bool:
+        """Actualiza campos administrativos conforme a columnas reales de la tabla incapacidad.
+        Columnas esperadas: id_admin, valor_pago, numero_radicado, fecha_radicado, fecha_pago, estado.
+        """
+        update_values: dict[str, Any] = {}
+        if estado is not None:
+            update_values['estado'] = estado
+        if id_admin is not None:
+            update_values['id_admin'] = id_admin
+        if valor_pago is not None:
+            update_values['valor_pago'] = valor_pago
         if numero_radicado is not None:
-            values['numero_radicado'] = numero_radicado
+            update_values['numero_radicado'] = numero_radicado
         if fecha_radicado is not None:
-            values['fecha_radicado'] = fecha_radicado
-        if paga is not None:
-            values['paga'] = paga
-        if estado_administrativo is not None:
-            values['estado_administrativo'] = estado_administrativo
-        if usuario_revisor_id is not None:
-            values['usuario_revisor_id'] = usuario_revisor_id
-            
-        # Preservar fecha_registro
+            update_values['fecha_radicado'] = fecha_radicado
+        if fecha_pago is not None:
+            update_values['fecha_pago'] = fecha_pago
+
+        # Filtrar solo por columnas existentes para evitar CompileError
+        existing_cols = set(self.t_incapacidad.c.keys())
+        filtered_values = {k: v for k, v in update_values.items() if k in existing_cols}
+
+        # Preservar fecha_registro si existe
         current = self.get(id_incapacidad)
-        if current and 'fecha_registro' in current:
-            values['fecha_registro'] = current['fecha_registro']
+        if current and 'fecha_registro' in current and 'fecha_registro' in existing_cols:
+            filtered_values['fecha_registro'] = current['fecha_registro']
+
+        if not filtered_values:
+            return True
+
         stmt = (
             update(self.t_incapacidad)
             .where(self.t_incapacidad.c.id_incapacidad == id_incapacidad)
-            .values(**values)
+            .values(**filtered_values)
         )
         result = self.db.execute(stmt)
         self.db.commit()

@@ -69,6 +69,14 @@ class UsuarioRepository:
         self.db.commit()
         return True
 
+    def set_rol(self, id_usuario: int, rol_id: int) -> bool:
+        entity = self.get(id_usuario)
+        if entity is None:
+            return False
+        entity.rol_id = int(rol_id)
+        self.db.commit()
+        return True
+
     def update_me(self, id_usuario: int, *, nombre: Optional[str] = None, numero_identificacion: Optional[str] = None, tipo_empleador_id: Optional[int] = None, cargo_interno: Optional[int] = None, correo_electronico: Optional[str] = None, telefono: Optional[str] = None) -> bool:
         entity = self.get(id_usuario)
         if entity is None:

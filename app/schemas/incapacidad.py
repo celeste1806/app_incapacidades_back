@@ -71,12 +71,12 @@ class IncapacidadCreateLegacy(BaseModel):
 
 
 class IncapacidadAdministrativaUpdate(BaseModel):
-    """Schema para actualizar campos administrativos (admin)"""
-    clase_administrativa: Optional[str] = Field(None, max_length=50)
-    numero_radicado: Optional[str] = Field(None, max_length=100)
+    """Schema para actualizar campos administrativos (admin) según columnas reales."""
+    valor_pago: Optional[Decimal] = None
+    numero_radicado: Optional[str] = Field(None, max_length=50)
     fecha_radicado: Optional[datetime] = None
-    paga: Optional[bool] = None
-    estado_administrativo: Optional[str] = Field(None, max_length=100)
+    fecha_pago: Optional[datetime] = None
+    estado: Optional[int] = None
 
 
 class IncapacidadFormularioUpdate(BaseModel):
@@ -130,12 +130,12 @@ class IncapacidadAdminOut(BaseModel):
     estado: int
     fecha_registro: datetime
     mensaje_rechazo: Optional[str] = None
-    clase_administrativa: Optional[str] = None
+    # Campos administrativos reales
+    id_admin: Optional[int] = None
+    valor_pago: Optional[Decimal] = None
     numero_radicado: Optional[str] = None
     fecha_radicado: Optional[datetime] = None
-    paga: Optional[bool] = None
-    estado_administrativo: Optional[str] = None
-    usuario_revisor_id: Optional[int] = None
+    fecha_pago: Optional[datetime] = None
     documentos: List[dict] = Field(default_factory=list)
     
     # Campos de nombres resueltos para mostrar en el frontend

@@ -338,6 +338,24 @@ class IncapacidadService:
                 if 'motivo_rechazo' in row:
                     row['mensaje_rechazo'] = row.get('motivo_rechazo')
                 
+            # 1. NOMBRE tipo de incapacidad (catálogo ParametroHijo)
+            if row.get("tipo_incapacidad_id"):
+                t = self.param_hijo_repo.obtener_id(row["tipo_incapacidad_id"])
+                if t:
+                    row["tipo_incapacidad_nombre"] = getattr(t, "nombre", None) or ''
+                else:
+                    row["tipo_incapacidad_nombre"] = ''
+            else:
+                row["tipo_incapacidad_nombre"] = ''
+
+            # 2. DOCUMENTOS adjuntos de la incapacidad
+            from app.repositories.archivo_repository import ArchivoRepository
+            from sqlalchemy import text
+            archivo_repo = ArchivoRepository(self.db)
+            # Obtener todos los archivos en incapacidad_archivo por incapacidad_id
+            docs = self.db.execute(text(f'SELECT * FROM incapacidad_archivo WHERE incapacidad_id = :inc'), {"inc": row["id_incapacidad"]}).mappings().all()
+            row["documentos"] = [dict(a) for a in docs] if docs else []
+
         return data
 
     def obtener_mi_incapacidad(self, *, usuario_id: int, id_incapacidad: int) -> Optional[dict]:
@@ -421,21 +439,17 @@ class IncapacidadService:
         normalized_data = [self._normalize_incapacidad_row(dict(row)) for row in data]
         
         # Resolver nombres de tipos de incapacidad para cada registro
+        from app.repositories.tipo_incapacidad import TipoIncapacidadRepository
+        tipo_repo = TipoIncapacidadRepository(self.db)
         for inc in normalized_data:
             if inc.get("tipo_incapacidad_id"):
-                from app.repositories.tipo_incapacidad import TipoIncapacidadRepository
-                tipo_repo = TipoIncapacidadRepository(self.db)
                 tipo = tipo_repo.obtener_id(inc["tipo_incapacidad_id"])
-                if tipo:
-                    inc["tipo_incapacidad_nombre"] = tipo.nombre
-                    inc["tipo_incapacidad"] = {
-                        "id_tipo_incapacidad": tipo.id_tipo_incapacidad,
-                        "nombre": tipo.nombre,
-                        "descripcion": tipo.descripcion
-                    }
-                else:
-                    inc["tipo_incapacidad_nombre"] = f"Tipo {inc['tipo_incapacidad_id']}"
-                    inc["tipo_incapacidad"] = {"id_tipo_incapacidad": inc["tipo_incapacidad_id"], "nombre": f"Tipo {inc['tipo_incapacidad_id']}"}
+                inc["tipo_incapacidad_nombre"] = tipo.nombre if tipo else ''
+                inc["tipo_incapacidad"] = {
+                    "id_tipo_incapacidad": tipo.id_tipo_incapacidad,
+                    "nombre": tipo.nombre,
+                    "descripcion": tipo.descripcion
+                }
             else:
                 inc["tipo_incapacidad_nombre"] = "Tipo no especificado"
                 inc["tipo_incapacidad"] = {"id_tipo_incapacidad": None, "nombre": "Tipo no especificado"}
@@ -650,32 +664,31 @@ class IncapacidadService:
                                 id_incapacidad: int, 
                                 admin_id: int,
                                 payload: IncapacidadAdministrativaUpdate) -> bool:
-        """Actualiza campos administrativos y marca como revisada"""
+        """Actualiza campos administrativos y marca como revisada (usa columnas reales)."""
         success = self.repo.update_administrativo(
             id_incapacidad=id_incapacidad,
-            clase_administrativa=payload.clase_administrativa,
-            numero_radicado=payload.numero_radicado,
-            fecha_radicado=payload.fecha_radicado,
-            paga=payload.paga,
-            estado_administrativo=payload.estado_administrativo,
-            usuario_revisor_id=admin_id,
-            estado=12  # revisado (parametro_hijo)
+            id_admin=admin_id,
+            valor_pago=getattr(payload, 'valor_pago', None),
+            numero_radicado=getattr(payload, 'numero_radicado', None),
+            fecha_radicado=getattr(payload, 'fecha_radicado', None),
+            fecha_pago=getattr(payload, 'fecha_pago', None),
+            estado=getattr(payload, 'estado', 12) or 12,
         )
         
         # Registrar auditoría y notificar
         if success:
             # Auditoría de cambios administrativos
             changes = {}
-            if payload.clase_administrativa is not None:
-                changes["clase_administrativa"] = payload.clase_administrativa
             if payload.numero_radicado is not None:
                 changes["numero_radicado"] = payload.numero_radicado
             if payload.fecha_radicado is not None:
                 changes["fecha_radicado"] = payload.fecha_radicado.isoformat()
-            if payload.paga is not None:
-                changes["paga"] = payload.paga
-            if payload.estado_administrativo is not None:
-                changes["estado_administrativo"] = payload.estado_administrativo
+            if getattr(payload, 'fecha_pago', None) is not None:
+                changes["fecha_pago"] = payload.fecha_pago.isoformat()
+            if getattr(payload, 'valor_pago', None) is not None:
+                changes["valor_pago"] = str(payload.valor_pago)
+            if getattr(payload, 'estado', None) is not None:
+                changes["estado"] = int(payload.estado)
             
             self.audit_service.log_administrative_change(
                 incapacidad_id=id_incapacidad,

@@ -20,7 +20,7 @@ from app.schemas.auth import (
 from app.services.usuario_service import UsuarioService
 from app.services.password_reset_service import PasswordResetService
 from app.core.security import decode_token
-from app.core.auth_dependency import get_current_employee
+from app.core.auth_dependency import get_current_employee, get_current_admin
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -111,6 +111,26 @@ def cambiar_estado(
     if not ok:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     return {"ok": True}
+
+
+@router.post("/usuarios/{id_usuario}/rol")
+def cambiar_rol(
+    id_usuario: int,
+    payload: dict,
+    service: UsuarioService = Depends(get_service),
+    admin = Depends(get_current_admin),
+):
+    """Permite a un administrador asignar el rol de un usuario (por ejemplo, 10=admin, 9=empleado)."""
+    try:
+        nuevo_rol = int(payload.get("rol_id"))
+    except Exception:
+        nuevo_rol = None
+    if nuevo_rol is None:
+        raise HTTPException(status_code=400, detail="El campo 'rol_id' es requerido y debe ser numérico")
+    ok = service.set_rol(id_usuario, nuevo_rol)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    return {"ok": True, "rol_id": nuevo_rol}
 
 
 @router.post("/refresh", response_model=RefreshResponse)
