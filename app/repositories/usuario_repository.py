@@ -95,3 +95,43 @@ class UsuarioRepository:
             entity.telefono = telefono
         self.db.commit()
         return True
+
+    def update_admin(
+        self,
+        id_usuario: int,
+        *,
+        nombre_completo: Optional[str] = None,
+        numero_identificacion: Optional[str] = None,
+        tipo_identificacion_id: Optional[int] = None,
+        tipo_empleador_id: Optional[int] = None,
+        cargo_interno_id: Optional[int] = None,
+        correo_electronico: Optional[str] = None,
+        telefono: Optional[str] = None,
+        rol_id: Optional[int] = None,
+        estado: Optional[bool] = None,
+    ) -> bool:
+        entity = self.get(id_usuario)
+        if entity is None:
+            return False
+
+        if nombre_completo is not None:
+            entity.nombre_completo = nombre_completo
+        if numero_identificacion is not None:
+            entity.numero_identificacion = numero_identificacion
+        if tipo_identificacion_id is not None:
+            entity.tipo_identificacion_id = tipo_identificacion_id
+        if tipo_empleador_id is not None:
+            entity.tipo_empleador_id = tipo_empleador_id
+        if cargo_interno_id is not None:
+            entity.cargo_interno_id = cargo_interno_id
+        if correo_electronico is not None:
+            entity.correo_electronico = correo_electronico
+        if telefono is not None:
+            entity.telefono = telefono
+        if rol_id is not None:
+            entity.rol_id = int(rol_id)
+        if estado is not None:
+            entity.estado = bool(estado)
+
+        self.db.commit()
+        return True

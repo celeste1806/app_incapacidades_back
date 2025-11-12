@@ -166,5 +166,24 @@ class UsuarioService:
             info["estado"] = bool(getattr(user, "estado", False))
             # Intentar exponer fecha_registro si existe en la tabla (puede no estar mapeada)
             info["fecha_registro"] = getattr(user, "fecha_registro", None)
+            info["tipo_identificacion_id"] = getattr(user, "tipo_identificacion_id", None)
+            info["tipo_empleador_id"] = getattr(user, "tipo_empleador_id", None)
+            info["cargo_interno_id"] = getattr(user, "cargo_interno_id", None)
+            info["rol_id"] = getattr(user, "rol_id", None)
+            info["telefono"] = getattr(user, "telefono", None)
             result.append(info)
         return result
+
+    def update_admin(self, id_usuario: int, payload: dict) -> bool:
+        return self.repo.update_admin(
+            id_usuario,
+            nombre_completo=payload.get("nombre_completo"),
+            numero_identificacion=payload.get("numero_identificacion"),
+            tipo_identificacion_id=payload.get("tipo_identificacion_id"),
+            tipo_empleador_id=payload.get("tipo_empleador_id"),
+            cargo_interno_id=payload.get("cargo_interno"),
+            correo_electronico=payload.get("correo_electronico"),
+            telefono=payload.get("telefono"),
+            rol_id=payload.get("rol_id"),
+            estado=payload.get("estado"),
+        )

@@ -6,6 +6,7 @@ from typing import List, Optional
 from fastapi import UploadFile
 from sqlalchemy.orm import Session
 from datetime import datetime
+from pathlib import Path
 
 from app.repositories.archivo_repository import ArchivoRepository
 from app.repositories.incapacidad import IncapacidadRepository
@@ -36,8 +37,9 @@ class UploadService:
         self.archivo_repo = ArchivoRepository(db)
         self.incapacidad_repo = IncapacidadRepository(db)
         self.audit_service = AuditService(db)
-        self.upload_dir = "uploads"
-        self.urls_dir = os.path.join(self.upload_dir, "urls")
+        base_uploads_path = Path(__file__).resolve().parents[2] / "uploads"
+        self.upload_dir = str(base_uploads_path)
+        self.urls_dir = str(base_uploads_path / "urls")
         self.max_file_size = 10 * 1024 * 1024  # 10MB
         # Configuración Drive
         self.gdrive_folder_name = get_env("GDRIVE_FOLDER_NAME", "archivo incapacidad")

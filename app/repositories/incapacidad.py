@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from typing import Any, Iterable, Optional, List
-from sqlalchemy import MetaData, Table, insert, select, update, and_, delete
+from sqlalchemy import MetaData, Table, insert, select, update, and_, delete, inspect
 from sqlalchemy.orm import Session
 from datetime import datetime
 from decimal import Decimal
@@ -12,12 +12,29 @@ class IncapacidadRepository:
         self.db = db
         self._metadata = MetaData()
         # Reflejar tablas existentes sin definir modelos ORM
-        self._metadata.reflect(bind=self.db.bind, only=[
+        # La tabla 'administrador' puede no existir en algunos entornos; detectarla de forma segura
+        inspector = inspect(self.db.bind)
+        admin_table_name = None
+        try:
+            # La BD puede tener el nombre con o sin 'n'
+            if inspector.has_table("admistrador"):
+                admin_table_name = "admistrador"
+            elif inspector.has_table("administrador"):
+                admin_table_name = "administrador"
+        except Exception:
+            admin_table_name = None
+
+        only_list = [
             "incapacidad",
             "incapacidad_archivo",
-        ])
+        ]
+        if admin_table_name:
+            only_list.append(admin_table_name)
+
+        self._metadata.reflect(bind=self.db.bind, only=only_list)
         self.t_incapacidad: Table = self._metadata.tables["incapacidad"]
         self.t_incapacidad_archivo: Table = self._metadata.tables["incapacidad_archivo"]
+        self.t_administrador: Table = self._metadata.tables.get(admin_table_name) if admin_table_name else None
 
     def create(self, *, 
                tipo_incapacidad_id: int, 
@@ -180,6 +197,26 @@ class IncapacidadRepository:
         result = dict(inc)
         print(f"DEBUG REPO: Datos obtenidos de BD: {result}")
         
+        # Cargar datos administrativos desde tabla administrador si existe
+        try:
+            if hasattr(self, 't_administrador') and self.t_administrador is not None and 'incapacidad_id' in self.t_administrador.c:
+                adm_stmt = select(self.t_administrador).where(self.t_administrador.c.incapacidad_id == id_incapacidad)
+                adm_row = self.db.execute(adm_stmt).mappings().first()
+                if adm_row:
+                    adm = dict(adm_row)
+                    if 'valor_pago' in adm:
+                        result['valor_pago'] = adm.get('valor_pago')
+                    if 'numero_radicado' in adm:
+                        result['numero_radicado'] = adm.get('numero_radicado')
+                    if 'fecha_radicado' in adm:
+                        result['fecha_radicado'] = adm.get('fecha_radicado')
+                    if 'fecha_pago' in adm:
+                        result['fecha_pago'] = adm.get('fecha_pago')
+                    if 'estado' in adm and adm.get('estado') is not None:
+                        result['estado'] = adm.get('estado')
+        except Exception:
+            pass
+
         # Obtener documentos asociados
         # Usar una consulta directa para debug
         from sqlalchemy import text
@@ -345,43 +382,55 @@ class IncapacidadRepository:
                               fecha_radicado: Optional[datetime] = None,
                               fecha_pago: Optional[datetime] = None,
                               estado: Optional[int] = 12) -> bool:
-        """Actualiza campos administrativos conforme a columnas reales de la tabla incapacidad.
-        Columnas esperadas: id_admin, valor_pago, numero_radicado, fecha_radicado, fecha_pago, estado.
-        """
-        update_values: dict[str, Any] = {}
+        """Guarda campos administrativos en la tabla administrador y actualiza estado en incapacidad si se envía."""
+        # 1) Actualizar estado en incapacidad si viene
         if estado is not None:
-            update_values['estado'] = estado
-        if id_admin is not None:
-            update_values['id_admin'] = id_admin
-        if valor_pago is not None:
-            update_values['valor_pago'] = valor_pago
-        if numero_radicado is not None:
-            update_values['numero_radicado'] = numero_radicado
-        if fecha_radicado is not None:
-            update_values['fecha_radicado'] = fecha_radicado
-        if fecha_pago is not None:
-            update_values['fecha_pago'] = fecha_pago
+            stmt_estado = (
+                update(self.t_incapacidad)
+                .where(self.t_incapacidad.c.id_incapacidad == id_incapacidad)
+                .values(estado=estado)
+            )
+            self.db.execute(stmt_estado)
+            self.db.commit()
 
-        # Filtrar solo por columnas existentes para evitar CompileError
-        existing_cols = set(self.t_incapacidad.c.keys())
-        filtered_values = {k: v for k, v in update_values.items() if k in existing_cols}
-
-        # Preservar fecha_registro si existe
-        current = self.get(id_incapacidad)
-        if current and 'fecha_registro' in current and 'fecha_registro' in existing_cols:
-            filtered_values['fecha_registro'] = current['fecha_registro']
-
-        if not filtered_values:
+        # 2) Upsert en administrador por incapacidad_id
+        if self.t_administrador is None or 'incapacidad_id' not in self.t_administrador.c:
             return True
 
-        stmt = (
-            update(self.t_incapacidad)
-            .where(self.t_incapacidad.c.id_incapacidad == id_incapacidad)
-            .values(**filtered_values)
-        )
-        result = self.db.execute(stmt)
-        self.db.commit()
-        return result.rowcount > 0
+        # construir valores permitidos según columnas existentes
+        admin_cols = set(self.t_administrador.c.keys())
+        values: dict[str, Any] = {}
+        # Establecer siempre id_creador (la FK en BD validará su existencia)
+        if 'id_creador' in admin_cols and id_admin is not None:
+            values['id_creador'] = id_admin
+        if 'valor_pago' in admin_cols and valor_pago is not None:
+            values['valor_pago'] = str(valor_pago)
+        if 'numero_radicado' in admin_cols and numero_radicado is not None:
+            values['numero_radicado'] = numero_radicado
+        if 'fecha_radicado' in admin_cols and fecha_radicado is not None:
+            values['fecha_radicado'] = fecha_radicado
+        if 'fecha_pago' in admin_cols and fecha_pago is not None:
+            values['fecha_pago'] = fecha_pago
+        if 'estado' in admin_cols and estado is not None:
+            values['estado'] = estado
+
+        sel = select(self.t_administrador).where(self.t_administrador.c.incapacidad_id == id_incapacidad)
+        existing = self.db.execute(sel).mappings().first()
+        if existing:
+            upd = (
+                update(self.t_administrador)
+                .where(self.t_administrador.c.incapacidad_id == id_incapacidad)
+                .values(**values)
+            )
+            self.db.execute(upd)
+            self.db.commit()
+            return True
+        else:
+            values['incapacidad_id'] = id_incapacidad
+            ins = insert(self.t_administrador).values(**values)
+            self.db.execute(ins)
+            self.db.commit()
+            return True
 
     def add_archivos(self, *, incapacidad_id: int, archivo_ids: Iterable[int], url_builder: Optional[callable[[int], str]] = None) -> list[dict]:
         inserted: list[dict] = []
@@ -531,6 +580,23 @@ class IncapacidadRepository:
         # Preservar fecha_registro
         current = self.get(id_incapacidad)
         values = {'mensaje_rechazo': mensaje_rechazo}
+        if current and 'fecha_registro' in current:
+            values['fecha_registro'] = current['fecha_registro']
+        stmt = (
+            update(self.t_incapacidad)
+            .where(self.t_incapacidad.c.id_incapacidad == id_incapacidad)
+            .values(**values)
+        )
+        
+        result = self.db.execute(stmt)
+        self.db.commit()
+        return result.rowcount > 0
+
+    def update_motivo_no_pagas(self, id_incapacidad: int, motivo_no_pagas: str) -> bool:
+        """Actualiza el motivo cuando no están pagas"""
+        # Preservar fecha_registro
+        current = self.get(id_incapacidad)
+        values = {'motivo_no_pagas': motivo_no_pagas}
         if current and 'fecha_registro' in current:
             values['fecha_registro'] = current['fecha_registro']
         stmt = (

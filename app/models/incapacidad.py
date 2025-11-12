@@ -36,4 +36,7 @@ class Incapacidad(Base):
     
     # Campo para mensaje de rechazo
     mensaje_rechazo: Mapped[str] = mapped_column(String(500), nullable=True)
+    
+    # Campo para motivo cuando no están pagas
+    motivo_no_pagas: Mapped[str] = mapped_column(String(500), nullable=True)
    

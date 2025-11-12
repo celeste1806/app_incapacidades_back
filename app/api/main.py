@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-import os
+from pathlib import Path
 from starlette.middleware.cors import CORSMiddleware
 
 from app.db.session import test_connection
@@ -21,6 +21,8 @@ from app.api.v1.routers.usuario_router import router as auth_router
 from app.api.v1.routers.incapacidad_router import router as incapacidad_router
 from app.db.migrate import align_usuario_table, align_incapacidad_table
 
+
+BASE_DIR = Path(__file__).resolve().parents[2]
 
 app = FastAPI(title="API Incapacidades")
 
@@ -85,9 +87,9 @@ app.include_router(incapacidad_router, prefix="/api")
 
 # Exponer carpeta de subidas como estáticos para poder ver/descargar documentos
 try:
-    uploads_dir = os.path.join(os.getcwd(), "incapacidades-backend-main", "uploads")
-    if os.path.isdir(uploads_dir):
-        app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
+    uploads_dir = BASE_DIR / "uploads"
+    if uploads_dir.is_dir():
+        app.mount("/uploads", StaticFiles(directory=str(uploads_dir)), name="uploads")
 except Exception:
     # No bloquear si falla el montaje
     pass

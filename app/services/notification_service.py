@@ -249,55 +249,16 @@ class NotificationService:
         Envía notificación a un administrador específico.
         """
         try:
-            # Preparar correo para nueva incapacidad
-            incapacidad_id = notification_data.get('incapacidad_id')
-            empleado = notification_data.get('empleado', {})
-            incapacidad = notification_data.get('incapacidad', {})
-
-            subject = f"🆕 Nueva incapacidad #{incapacidad_id} - {empleado.get('nombre','Empleado')}"
-            # Contenido HTML básico para administradores
-            html_content = f"""
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <meta charset=\"UTF-8\">
-                <style>
-                    body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
-                    .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
-                    .header {{ background-color: #2563eb; color: white; padding: 16px; text-align: center; border-radius: 6px 6px 0 0; }}
-                    .content {{ background-color: #f8fafc; padding: 20px; border-radius: 0 0 6px 6px; }}
-                    .info-box {{ background-color: white; padding: 12px 16px; margin: 10px 0; border-left: 4px solid #2563eb; }}
-                </style>
-            </head>
-            <body>
-                <div class=\"container\">
-                    <div class=\"header\">Nueva incapacidad registrada</div>
-                    <div class=\"content\">
-                        <p>Se ha creado una nueva incapacidad por el empleado <strong>{empleado.get('nombre','')}</strong> ({empleado.get('email','')}).</p>
-                        <div class=\"info-box\">
-                            <p><strong>ID:</strong> {incapacidad_id}</p>
-                            <p><strong>Fecha inicio:</strong> {incapacidad.get('fecha_inicio','N/A')}</p>
-                            <p><strong>Fecha fin:</strong> {incapacidad.get('fecha_final','N/A')}</p>
-                            <p><strong>Días:</strong> {incapacidad.get('dias','N/A')}</p>
-                            <p><strong>EPS:</strong> {incapacidad.get('eps','N/A')}</p>
-                            <p><strong>Servicio:</strong> {incapacidad.get('servicio','N/A')}</p>
-                            <p><strong>Diagnóstico:</strong> {incapacidad.get('diagnostico','N/A')}</p>
-                        </div>
-                        <p>Por favor ingresa al panel administrativo para revisar y gestionar esta solicitud.</p>
-                    </div>
-                </div>
-            </body>
-            </html>
-            """
+            # Preparar correo para nueva incapacidad con el MISMO layout del correo de rechazo
+            subject, html_content = self._create_admin_new_incapacity_email_content(notification_data)
 
             text_content = (
-                f"Nueva incapacidad #{incapacidad_id} por {empleado.get('nombre','')} ({empleado.get('email','')}).\n"
-                f"Fecha inicio: {incapacidad.get('fecha_inicio','N/A')}\n"
-                f"Fecha fin: {incapacidad.get('fecha_final','N/A')}\n"
-                f"Días: {incapacidad.get('dias','N/A')}\n"
-                f"EPS: {incapacidad.get('eps','N/A')}\n"
-                f"Servicio: {incapacidad.get('servicio','N/A')}\n"
-                f"Diagnóstico: {incapacidad.get('diagnostico','N/A')}\n"
+                f"Nueva incapacidad registrada por "
+                f"{notification_data.get('empleado',{}).get('nombre','')} "
+                f"({notification_data.get('empleado',{}).get('email','')}).\n"
+                f"Fecha inicio: {self._format_date(notification_data.get('incapacidad',{}).get('fecha_inicio'))}\n"
+                f"Fecha fin: {self._format_date(notification_data.get('incapacidad',{}).get('fecha_final'))}\n"
+                f"Días: {notification_data.get('incapacidad',{}).get('dias','N/A')}\n"
             )
 
             # Enviar correo al administrador
@@ -311,6 +272,167 @@ class NotificationService:
         except Exception as e:
             self.logger.error(f"Error al enviar notificación a admin {admin['email']}: {str(e)}")
             return False
+
+    def _load_email_css(self, filename: str) -> str:
+        """
+        Carga estilos CSS para correos desde app/email_templates/styles/{filename}.
+        Si el archivo no existe, retorna un conjunto mínimo de estilos por defecto.
+        """
+        try:
+            base_dir = os.path.dirname(os.path.dirname(__file__))  # app/
+            styles_path = os.path.join(base_dir, "email_templates", "styles", filename)
+            if os.path.exists(styles_path):
+                with open(styles_path, "r", encoding="utf-8") as f:
+                    return f.read()
+        except Exception as e:
+            self.logger.warning(f"No se pudo cargar CSS de email ({filename}): {str(e)}")
+        # Fallback mínimo para no romper el correo
+        return (
+            "body{margin:0;padding:0;background:#f4f6f8;color:#111827;"
+            "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,'Helvetica Neue',sans-serif}"
+            ".wrapper{width:100%;background:#f4f6f8;padding:24px 0}"
+            ".container{max-width:640px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;"
+            "box-shadow:0 1px 3px rgba(17,24,39,.08)}"
+            ".header{background:linear-gradient(90deg,#1d4ed8,#2563eb);color:#fff;padding:20px 24px}"
+            ".title{margin:0;font-size:20px;line-height:1.2;font-weight:700}"
+            ".subtitle{margin:6px 0 0;font-size:14px;opacity:.9}"
+            ".content{padding:20px 24px}"
+            ".chip{display:inline-block;padding:4px 10px;border-radius:999px;background:#eff6ff;color:#1d4ed8;"
+            "font-size:12px;font-weight:600;margin:6px 0 14px}"
+            ".table{width:100%;border-collapse:separate;border-spacing:0;margin-top:8px}"
+            ".cell-label{width:38%;background:#f9fafb;border-left:4px solid #2563eb;padding:10px 12px;font-weight:600;"
+            "color:#374151;vertical-align:top}"
+            ".cell-value{padding:10px 12px;color:#111827;border-bottom:1px solid #f3f4f6}"
+            ".note{margin-top:16px;font-size:13px;color:#4b5563}"
+            ".footer{padding:16px 24px;background:#f9fafb;color:#6b7280;font-size:12px;text-align:center}"
+        )
+
+    def _create_admin_new_incapacity_email_content(self, notification_data: dict) -> tuple[str, str]:
+        """
+        Genera el correo HTML para 'nueva incapacidad' usando el MISMO layout que el correo
+        de rechazo (contenedor, header, info-box), con paleta azul.
+        """
+        empleado = notification_data.get('empleado', {})
+        incapacidad = notification_data.get('incapacidad', {})
+        subject = f"🆕 Nueva incapacidad - {empleado.get('nombre','Empleado')}"
+
+        # CTA al panel (si está configurado)
+        panel_url = os.getenv("ADMIN_PANEL_URL", "")
+        primary = self._get_primary_color()
+        cta_html = (
+            f'<div style="text-align:center;margin-top:16px;"><a href="{panel_url}" '
+            f'style="display:inline-block;background-color:{primary};color:#ffffff;'
+            'padding:12px 18px;border-radius:8px;text-decoration:none;font-weight:600">'
+            'Abrir panel administrativo</a></div>'
+        ) if panel_url else ""
+
+        # Estilos base del layout de rechazo pero con azul
+        css_styles = (
+            "body{font-family:Arial, sans-serif; line-height:1.6; color:#333;}"
+            ".container{max-width:600px; margin:0 auto; padding:20px;}"
+            f".header{{background-color:{primary}; color:white; padding:20px; text-align:center; border-radius:5px 5px 0 0;}}"
+            ".content{background-color:#f8f9fa; padding:20px; border-radius:0 0 5px 5px;}"
+            f".info-box{{background-color:white; padding:15px; margin:10px 0; border-left:4px solid {primary};}}"
+            ".footer{text-align:center; margin-top:20px; color:#666; font-size:12px;}"
+        )
+
+        # Logo corporativo (opcional)
+        logo_b64 = self._load_logo_base64()
+        logo_html = (
+            f'<div style="text-align:center;margin-bottom:8px;">'
+            f'<img alt="UMIT" src="data:image/png;base64,{logo_b64}" '
+            f'style="max-width:140px;height:auto;display:inline-block;filter:grayscale(100%);" />'
+            f'</div>'
+        ) if logo_b64 else ""
+
+        # Formatear fechas sin hora
+        fecha_inicio_fmt = self._format_date(incapacidad.get('fecha_inicio'))
+        fecha_fin_fmt = self._format_date(incapacidad.get('fecha_final'))
+
+        html_content = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>{css_styles}</style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            {logo_html}
+            <h1>🆕 Nueva Incapacidad</h1>
+        </div>
+        <div class="content">
+            <p>Se ha creado una nueva incapacidad por el empleado <strong>{empleado.get('nombre','')}</strong> ({empleado.get('email','')}).</p>
+            <div class="info-box">
+                <h3>📅 Fechas</h3>
+                <p><strong>Fecha de Inicio:</strong> {fecha_inicio_fmt}</p>
+                <p><strong>Fecha de Fin:</strong> {fecha_fin_fmt}</p>
+                <p><strong>Días:</strong> {incapacidad.get('dias','N/A')}</p>
+            </div>
+            {cta_html}
+            <p>Por favor ingresa al panel administrativo para revisar y gestionar esta solicitud.</p>
+        </div>
+        <div class="footer">
+            Este es un mensaje automático. Por favor no respondas a este correo.
+        </div>
+    </div>
+</body>
+</html>
+"""
+        return subject, html_content
+    
+    def _format_date(self, value) -> str:
+        """
+        Devuelve la fecha en formato AAAA-MM-DD, removiendo hora si viene en ISO o con 'T'.
+        Acepta datetime/date o string. Si no hay valor, retorna 'N/A'.
+        """
+        try:
+            if not value:
+                return "N/A"
+            # Si es datetime o date
+            if hasattr(value, "isoformat"):
+                # Para datetime con hora, tomar solo la parte de fecha
+                iso = value.isoformat()
+                return iso.split("T")[0].split(" ")[0]
+            # Si es string
+            if isinstance(value, str):
+                # Separar por 'T' o por espacio
+                return value.split("T")[0].split(" ")[0]
+        except Exception:
+            pass
+        return str(value)
+
+    def _get_primary_color(self) -> str:
+        """
+        Color fijo para los correos de 'nueva incapacidad'.
+        Solicitado por el usuario: usar azul cielo/celeste.
+        """
+        
+        return "#dc2626"
+
+    def _load_logo_base64(self) -> Optional[str]:
+        """
+        Carga un logo PNG desde app/email_templates/assets o la ruta en EMAIL_LOGO_FILE.
+        Devuelve el contenido en base64 para incrustarlo en el HTML del correo.
+        """
+        try:
+            import base64
+            base_dir = os.path.dirname(os.path.dirname(__file__))  # app/
+            assets_dir = os.path.join(base_dir, "email_templates", "assets")
+            candidates: List[str] = []
+            env_path = os.getenv("EMAIL_LOGO_FILE")
+            if env_path:
+                candidates.append(env_path)
+            candidates += ["@Logo negro UMIT.png", "logo_umit.png", "logo.png"]
+            for name in candidates:
+                path = name if os.path.isabs(name) else os.path.join(assets_dir, name)
+                if os.path.exists(path):
+                    with open(path, "rb") as f:
+                        return base64.b64encode(f.read()).decode("ascii")
+        except Exception as e:
+            self.logger.warning(f"No se pudo cargar el logo: {str(e)}")
+        return None
 
     def _send_notification_to_employee(self, empleado, notification_data: dict) -> bool:
         """

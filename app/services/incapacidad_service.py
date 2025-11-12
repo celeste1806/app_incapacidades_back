@@ -42,6 +42,17 @@ class IncapacidadService:
             except (InvalidOperation, ValueError, TypeError):
                 row["salario"] = Decimal("0")
 
+        # Normalizar valor_pago: puede venir como string vacío desde la tabla administrador
+        if "valor_pago" in row:
+            valor_pago_val = row.get("valor_pago")
+            if valor_pago_val in ("", None):
+                row["valor_pago"] = None
+            else:
+                try:
+                    row["valor_pago"] = Decimal(str(valor_pago_val))
+                except (InvalidOperation, ValueError, TypeError):
+                    row["valor_pago"] = None
+
         # Normalizar fecha_registro si viene nula
         if row.get("fecha_registro") is None:
             row["fecha_registro"] = datetime.utcnow()
@@ -665,6 +676,7 @@ class IncapacidadService:
                                 admin_id: int,
                                 payload: IncapacidadAdministrativaUpdate) -> bool:
         """Actualiza campos administrativos y marca como revisada (usa columnas reales)."""
+        print(f"DEBUG SERVICE actualizar_administrativo: id={id_incapacidad} admin={admin_id} payload={payload}")
         success = self.repo.update_administrativo(
             id_incapacidad=id_incapacidad,
             id_admin=admin_id,
@@ -706,7 +718,7 @@ class IncapacidadService:
             )
             
             # Notificar al empleado
-            self.notification_service.notify_incapacidad_reviewed(id_incapacidad, admin_id)
+            self.notification_service.notify_incapacity_reviewed(id_incapacidad, admin_id)
         
         return success
 
@@ -798,7 +810,7 @@ class IncapacidadService:
         )
         return True
 
-    def cambiar_estado(self, *, id_incapacidad: int, nuevo_estado: int, admin_id: int, mensaje_rechazo: str = None) -> bool:
+    def cambiar_estado(self, *, id_incapacidad: int, nuevo_estado: int, admin_id: int, mensaje_rechazo: str = None, motivo_no_pagas: str = None) -> bool:
         """Cambia el estado de una incapacidad"""
         # Obtener estado actual para auditoría
         inc_actual = self.repo.get(id_incapacidad)
@@ -812,14 +824,24 @@ class IncapacidadService:
         if success and nuevo_estado == 50 and mensaje_rechazo:
             success = self.repo.update_mensaje_rechazo(id_incapacidad, mensaje_rechazo)
         
+        # Si es no pagas, actualizar también el motivo
+        if success and nuevo_estado == 44 and motivo_no_pagas:
+            success = self.repo.update_motivo_no_pagas(id_incapacidad, motivo_no_pagas)
+        
         if success:
             # Registrar auditoría
+            reason_parts = ["Cambio de estado por administrador"]
+            if mensaje_rechazo:
+                reason_parts.append(f"Rechazo: {mensaje_rechazo}")
+            if motivo_no_pagas:
+                reason_parts.append(f"No Pagas: {motivo_no_pagas}")
+            
             self.audit_service.log_status_change(
                 incapacidad_id=id_incapacidad,
                 user_id=admin_id,
                 old_status=old_status,
                 new_status=nuevo_estado,
-                reason=f"Cambio de estado por administrador" + (f" - Rechazo: {mensaje_rechazo}" if mensaje_rechazo else "")
+                reason=" - ".join(reason_parts)
             )
             
             # Enviar notificación según el tipo de cambio

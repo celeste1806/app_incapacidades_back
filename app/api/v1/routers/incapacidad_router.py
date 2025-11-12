@@ -183,14 +183,22 @@ def actualizar_administrativo(
     service: IncapacidadService = Depends(get_service),
     admin = Depends(get_current_admin),
 ):
-    ok = service.actualizar_administrativo(
-        id_incapacidad=id_incapacidad,
-        admin_id=admin.id_usuario,
-        payload=payload
-    )
-    if not ok:
-        raise HTTPException(status_code=404, detail="Incapacidad no encontrada")
-    return {"ok": True, "message": "Campos administrativos actualizados y marcada como revisada"}
+    try:
+        print(f"DEBUG ROUTER /administrativo: id={id_incapacidad} admin={admin.id_usuario} payload={payload}")
+        ok = service.actualizar_administrativo(
+            id_incapacidad=id_incapacidad,
+            admin_id=admin.id_usuario,
+            payload=payload
+        )
+        if not ok:
+            raise HTTPException(status_code=404, detail="Incapacidad no encontrada")
+        return {"ok": True, "message": "Campos administrativos actualizados y marcada como revisada"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"ERROR ROUTER /administrativo: {e}")
+        import traceback; print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/{id_incapacidad}/revisar", summary="Admin marca como revisada (método simple)")
@@ -215,6 +223,7 @@ def cambiar_estado(
     """Cambia el estado de una incapacidad. Estados válidos: 11=Pendiente, 12=Realizada, 40=Pagas, 44=No Pagas, 50=Rechazada"""
     estado = estado_data.get("estado")
     mensaje_rechazo = estado_data.get("mensaje_rechazo")
+    motivo_no_pagas = estado_data.get("motivo_no_pagas")
     
     if estado is None:
         raise HTTPException(status_code=400, detail="El campo 'estado' es requerido")
@@ -223,11 +232,16 @@ def cambiar_estado(
     if estado == 50 and not mensaje_rechazo:
         raise HTTPException(status_code=400, detail="El campo 'mensaje_rechazo' es requerido para rechazar una incapacidad")
     
+    # Si es no pagas, validar que tenga motivo
+    if estado == 44 and not motivo_no_pagas:
+        raise HTTPException(status_code=400, detail="El campo 'motivo_no_pagas' es requerido cuando el estado es 'No Pagas'")
+    
     ok = service.cambiar_estado(
         id_incapacidad=id_incapacidad, 
         nuevo_estado=estado, 
         admin_id=admin.id_usuario,
-        mensaje_rechazo=mensaje_rechazo
+        mensaje_rechazo=mensaje_rechazo,
+        motivo_no_pagas=motivo_no_pagas
     )
     if not ok:
         raise HTTPException(status_code=404, detail="Incapacidad no encontrada")

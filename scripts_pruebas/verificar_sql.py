@@ -9,7 +9,7 @@ from pathlib import Path
 def verificar_archivo_sql():
     """Verifica que el archivo SQL contenga todos los diagnósticos"""
     
-    archivo_sql = Path("insert_diagnosticos_mysql.sql")
+    archivo_sql = Path(__file__).resolve().parent.parent / "sql_scripts" / "insert_diagnosticos_mysql.sql"
     
     if not archivo_sql.exists():
         print(f"Error: No se encontro el archivo {archivo_sql}")

@@ -4,11 +4,13 @@ Script para contar exactamente los registros en el archivo SQL
 """
 
 import re
+from pathlib import Path
 
 def contar_registros_sql():
     """Cuenta los registros en el archivo SQL"""
     
-    archivo_sql = "insert_diagnosticos_mysql.sql"
+    base_dir = Path(__file__).resolve().parent.parent
+    archivo_sql = base_dir / "sql_scripts" / "insert_diagnosticos_mysql.sql"
     
     print("Contando registros en el archivo SQL...")
     

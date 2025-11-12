@@ -4,7 +4,7 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.schemas.usuario import UsuarioCreate, UsuarioOut
+from app.schemas.usuario import UsuarioCreate, UsuarioOut, UsuarioUpdate
 from app.schemas.auth import (
     LoginRequest, 
     TokenResponse, 
@@ -131,6 +131,19 @@ def cambiar_rol(
     if not ok:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     return {"ok": True, "rol_id": nuevo_rol}
+
+
+@router.put("/usuarios/{id_usuario}")
+def actualizar_usuario_admin(
+    id_usuario: int,
+    payload: UsuarioUpdate,
+    service: UsuarioService = Depends(get_service),
+    admin = Depends(get_current_admin),
+):
+    updated = service.update_admin(id_usuario, payload.model_dump(exclude_unset=True))
+    if not updated:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    return {"ok": True}
 
 
 @router.post("/refresh", response_model=RefreshResponse)

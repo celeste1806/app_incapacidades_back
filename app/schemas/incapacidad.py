@@ -105,6 +105,7 @@ class IncapacidadOut(BaseModel):
     estado: int  # Agregado para que el empleado pueda ver el estado de sus incapacidades
     fecha_registro: datetime
     mensaje_rechazo: Optional[str] = None  # Agregado para mostrar motivo de rechazo
+    motivo_no_pagas: Optional[str] = None  # Agregado para mostrar motivo cuando no están pagas
     documentos_cumplimiento: List[dict] = Field(default_factory=list)
     documentos: List[dict] = Field(default_factory=list)
 
@@ -130,6 +131,7 @@ class IncapacidadAdminOut(BaseModel):
     estado: int
     fecha_registro: datetime
     mensaje_rechazo: Optional[str] = None
+    motivo_no_pagas: Optional[str] = None
     # Campos administrativos reales
     id_admin: Optional[int] = None
     valor_pago: Optional[Decimal] = None

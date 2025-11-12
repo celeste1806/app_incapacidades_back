@@ -43,6 +43,9 @@ Notas importantes:
 - `app/api/main.py`: app FastAPI y registro de routers
 - `app/config/settings.py`: carga de variables de entorno y configuración de seguridad
 - `app/db/session.py`: creación de engine y sesión de BD
+- `scripts_utiles/`: utilidades y documentación para configuración (correos, GDrive, inicialización)
+- `scripts_pruebas/`: scripts manuales de verificación y pruebas puntuales
+- `sql_scripts/`: archivos `.sql` con cargas masivas (diagnósticos, cargos, servicios, etc.)
 - `run_server.py`: arranque del servidor con Uvicorn en modo reload
 - `start_server.bat`: script Windows para iniciar el servidor
 
@@ -67,7 +70,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES=1440
 CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173,*
 ```
 
-Variables opcionales relacionadas con integraciones (Google Drive, correos, etc.) existen en este repo; revisa los archivos `CONFIGURACION_CORREOS.md`, `NOTIFICACIONES_CORREO.md` y `configuracion_gdrive.env` si piensas habilitarlas. No son necesarias para levantar el servidor básico.
+Variables opcionales relacionadas con integraciones (Google Drive, correos, etc.) existen en este repo; revisa los archivos dentro de `scripts_utiles/` (ej. `CONFIGURACION_CORREOS.md`, `NOTIFICACIONES_CORREO.md`, `configuracion_gdrive.env`) si piensas habilitarlas. No son necesarias para levantar el servidor básico.
 
 ## Instalación
 
@@ -136,7 +139,7 @@ Si usas SQLite con `DATABASE_URL=sqlite:///./incapacidades.db`, el archivo se cr
 
 ## Subidas de archivos
 
-Si existe la carpeta `incapacidades-backend-main/uploads`, se expondrá como estático en `/uploads`. Esto permite ver/descargar documentos subidos durante pruebas.
+Si existe la carpeta `uploads` en la raíz del proyecto, se expondrá como estático en `/uploads`. Esto permite ver/descargar documentos subidos durante pruebas.
 
 ## Problemas comunes
 
@@ -147,10 +150,15 @@ Si existe la carpeta `incapacidades-backend-main/uploads`, se expondrá como est
 
 ## Tests rápidos (opcional)
 
-Hay varios scripts de prueba en la raíz (por ejemplo `test_*`). Puedes ejecutarlos con:
+En `scripts_pruebas/` hay scripts de verificación manual (por ejemplo `test_*`, `verificar_*`). Puedes ejecutarlos con:
 ```
 python nombre_del_script.py
 ```
+
+## SQL de apoyo
+
+- Los archivos de cargas masivas (diagnósticos, cargos, servicios, etc.) están en `sql_scripts/`.
+- Usa `sql_scripts/insert_diagnosticos_mysql.sql`, `sql_scripts/insert_cargos_mysql.sql`, `sql_scripts/insert_servicios_mysql.sql`, etc., según necesites poblar la base de datos.
 
 ## Despliegue (resumen)
 
